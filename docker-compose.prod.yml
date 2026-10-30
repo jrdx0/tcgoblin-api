@@ -1,0 +1,57 @@
+x-app: &app
+  image: tcgoblin-api:latest
+  build: .
+  restart: unless-stopped
+  environment:
+    MONGO_HOST: mongo
+    MONGO_PORT: "27017"
+    MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+    MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+    MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+    CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    SETTINGS_ENCRYPTION_KEY: ${SETTINGS_ENCRYPTION_KEY}
+    CHROME_EXECUTABLE: /usr/bin/chromium
+    CHROME_NO_SANDBOX: ${CHROME_NO_SANDBOX:-true}
+  depends_on:
+    mongo:
+      condition: service_healthy
+
+services:
+  mongo:
+    image: mongo:8.3.13
+    container_name: tcgoblin-mongo
+    restart: unless-stopped
+    ports:
+      - "${MONGO_PORT}:27017"
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: ${MONGO_INITDB_ROOT_USERNAME}
+      MONGO_INITDB_ROOT_PASSWORD: ${MONGO_INITDB_ROOT_PASSWORD}
+      MONGO_INITDB_DATABASE: ${MONGO_INITDB_DATABASE}
+      GLIBC_TUNABLES: glibc.pthread.rseq=1
+    volumes:
+      - ${MONGODB_DATA:-./data}/tcgoblin/db:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  api:
+    <<: *app
+    container_name: tcgoblin-api
+    command: ["api"]
+    ports:
+      - "${API_BIND:-127.0.0.1}:${API_PORT:-3000}:3000"
+    shm_size: 512mb
+
+  scheduler:
+    <<: *app
+    container_name: tcgoblin-scheduler
+    command: ["scheduler"]
+
+  worker:
+    <<: *app
+    container_name: tcgoblin-worker
+    command: ["worker"]
+    shm_size: 512mb

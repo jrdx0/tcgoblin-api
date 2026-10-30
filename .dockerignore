@@ -1,0 +1,6 @@
+target
+.chromium
+.env
+.git
+docker-compose.yml
+Dockerfile
